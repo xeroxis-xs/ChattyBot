@@ -39,6 +39,10 @@ APP_REGISTRATION_CLIENT_ID = os.environ['APP_REG_CLIENT_ID']
 st.set_page_config(page_title='AskNarelle - Your friendly course assistant', page_icon="🙋‍♀️")
 st.title(":woman-raising-hand: Ask Narelle")
 st.write("For queries related to SC1015/CE1115/CZ1115 - Introduction to Data Science & Artificial Intellegence")
+
+if st.button("Open"):
+    webbrowser.open("http://www.google.com")
+
 if "user" not in st.session_state:
     st.text_area("INFORMED CONSENT", label_visibility="collapsed" ,placeholder=LongText.TERMS_OF_USE, disabled=True, height=300)
     # st.code(LongText.TERMS_OF_USE)
