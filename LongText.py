@@ -1,5 +1,9 @@
 
-TERMS_OF_USE="""Ask Narelle - Your Friendly & Personalized 24-7 Teaching Assistant 
+TERMS_OF_USE="""========================================================
+REMOTE INFORMED CONSENT & TERMS OF USE
+========================================================
+
+Ask Narelle - Your Friendly & Personalized 24-7 Teaching Assistant 
 NTU-IRB ref no. <IRB-2023-860>
 
 1) Introduction
@@ -30,6 +34,6 @@ Please print a copy of this consent statement for your records, if you so desire
 """
 
 
-CONSENT_ACKNOWLEDGEMENT="I have read and understood the above consent form. I certify that I am 16 years old or older and, by clicking the next button to register an account and use the chatbot, I indicate my willingness to voluntarily take part in the study."
+CONSENT_ACKNOWLEDGEMENT=":orange[I have read and understood the above consent form. I certify that I am 16 years old or older and, by clicking the next button to register an account and use the chatbot, I indicate my willingness to voluntarily take part in the study.]"
 
 NARELLE_GREETINGS = "Hi, my name is Narelle. This is the first time I serve as course assistant to help answer your doubts regarding the course administrative matters such as course structure, schedules, and assessment. \n\nAs I am also new to this course and I will try my very best to answer all your queries accurately with the source of the information. Where possible try to cross check my answer with the infromation published at NTU Learn Course Page if in doubts."

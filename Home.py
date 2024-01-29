@@ -29,7 +29,8 @@ def getTime():
                 }
     return curr_time
 
-
+def get_user_profile():
+    return None
 
 ################## MAIN ##############################
 load_dotenv(override=True)
@@ -40,22 +41,19 @@ st.set_page_config(page_title='AskNarelle - Your friendly course assistant', pag
 st.title(":woman-raising-hand: Ask Narelle")
 st.write("For queries related to SC1015/CE1115/CZ1115 - Introduction to Data Science & Artificial Intellegence")
 
-
-st.session_state
+informed_consent_form = st.empty()
 
 if "user" not in st.session_state:
-    st.session_state.informed_consent_height = 300
-    # st.session_state.informed_consent = st.text_area("INFORMED CONSENT", label_visibility="collapsed" ,placeholder=LongText.TERMS_OF_USE, disabled=True, height=st.session_state.informed_consent_height)
-    st.session_state.informed_consent = st.expander("Remote Informed Consent & Terms of Use".upper(), expanded=True)
-    st.session_state.informed_consent.write(LongText.TERMS_OF_USE)
-    # st.code(LongText.TERMS_OF_USE)
 
-    st.session_state.agreebtn = st.checkbox(LongText.CONSENT_ACKNOWLEDGEMENT)
-    cols = st.columns(4)
-    with cols[0]:
-        btn_agree = st.button("Agree and Start", disabled=not(st.session_state.agreebtn))
-    with cols[1]:
-        btn_copy = st.button("Copy Consent Form")
+    with informed_consent_form.container():
+        st.text_area("INFORMED CONSENT", label_visibility="collapsed" ,placeholder=LongText.TERMS_OF_USE, disabled=True, height=300)
+
+        st.session_state.agreecheck = st.checkbox(LongText.CONSENT_ACKNOWLEDGEMENT)
+        cols = st.columns(4)
+        with cols[0]:
+            btn_agree = st.button("Agree and Proceed", disabled=not(st.session_state.agreecheck))
+        with cols[1]:
+            btn_copy = st.button("Copy Consent Form")
 
     if btn_copy:
         pyperclip.copy(f"{LongText.TERMS_OF_USE} \n\n ✔️ {LongText.CONSENT_ACKNOWLEDGEMENT}")
@@ -63,9 +61,9 @@ if "user" not in st.session_state:
         time.sleep(2)
         msg.empty()
 
-    st.toggle("ON OFF")
-
     if btn_agree:
+        informed_consent_form.empty()
+        st.markdown(''':orange[To prevent unauthorise usage and abuse of the system, we will need you to verify that you are an NTU student. Please follow the verfication process below to continue... ]''')
         progress_bar = st.progress(0, text="Redirecting...")
         app = PublicClientApplication(
         client_id=APP_REGISTRATION_CLIENT_ID, 
@@ -98,8 +96,7 @@ if "user" not in st.session_state:
 
             # print(f"URL: {flow['verification_uri']}, Access Code: {flow['user_code']}")
 
-            
-            st.session_state.informed_consent.write(f"Authentication Process: \n1) Go to : {flow['verification_uri']}\n2) Enter Access Code: {flow['user_code']}\n 3) Verify Identity with NTU Email\n 4) Accept App Access Permission.")
+            st.write(f" \n1) Go to : {flow['verification_uri']}\n2) Enter Access Code: {flow['user_code']}\n 3) Verify Identity with NTU Email\n 4) Accept App Access Permission.")
 
             # st.write(f"Authentication Process: \n1) Go to : {flow['verification_uri']}\n2) Enter Access Code: {flow['user_code']}\n 3) Verify Identity with NTU Email\n 4) Accept App Access Permission.")
             
