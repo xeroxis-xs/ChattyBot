@@ -40,13 +40,15 @@ st.set_page_config(page_title='AskNarelle - Your friendly course assistant', pag
 st.title(":woman-raising-hand: Ask Narelle")
 st.write("For queries related to SC1015/CE1115/CZ1115 - Introduction to Data Science & Artificial Intellegence")
 
-if st.button("Open"):
-    webbrowser.open("http://www.google.com")
+
+st.session_state
 
 if "user" not in st.session_state:
-    st.text_area("INFORMED CONSENT", label_visibility="collapsed" ,placeholder=LongText.TERMS_OF_USE, disabled=True, height=300)
+    st.session_state.informed_consent_height = 300
+    # st.session_state.informed_consent = st.text_area("INFORMED CONSENT", label_visibility="collapsed" ,placeholder=LongText.TERMS_OF_USE, disabled=True, height=st.session_state.informed_consent_height)
+    st.session_state.informed_consent = st.expander("Remote Informed Consent & Terms of Use".upper(), expanded=True)
+    st.session_state.informed_consent.write(LongText.TERMS_OF_USE)
     # st.code(LongText.TERMS_OF_USE)
-
 
     st.session_state.agreebtn = st.checkbox(LongText.CONSENT_ACKNOWLEDGEMENT)
     cols = st.columns(4)
@@ -61,10 +63,13 @@ if "user" not in st.session_state:
         time.sleep(2)
         msg.empty()
 
+    st.toggle("ON OFF")
+
     if btn_agree:
         progress_bar = st.progress(0, text="Redirecting...")
         app = PublicClientApplication(
-        APP_REGISTRATION_CLIENT_ID, authority='https://login.microsoftonline.com/common'
+        client_id=APP_REGISTRATION_CLIENT_ID, 
+        authority='https://login.microsoftonline.com/common'
         # token_cache=...  # Default cache is in memory only.
                         # You can learn how to use SerializableTokenCache from
                         # https://msal-python.readthedocs.io/en/latest/#msal.SerializableTokenCache
@@ -86,16 +91,30 @@ if "user" not in st.session_state:
         if not result:
             # logging.info("No suitable token exists in cache. Let's get a new one from AAD.")
             # print("A local browser window will be open for you to sign in. CTRL+C to cancel.")
-            result = app.acquire_token_interactive(scopes=["User.Read"])
+            # result = app.acquire_token_interactive(scopes=["User.Read"])
+
+            # Using Authentication Flow Instead:
+            flow = app.initiate_device_flow(scopes=["User.Read"])
+
+            # print(f"URL: {flow['verification_uri']}, Access Code: {flow['user_code']}")
+
+            
+            st.session_state.informed_consent.write(f"Authentication Process: \n1) Go to : {flow['verification_uri']}\n2) Enter Access Code: {flow['user_code']}\n 3) Verify Identity with NTU Email\n 4) Accept App Access Permission.")
+
+            # st.write(f"Authentication Process: \n1) Go to : {flow['verification_uri']}\n2) Enter Access Code: {flow['user_code']}\n 3) Verify Identity with NTU Email\n 4) Accept App Access Permission.")
+            
+            result = app.acquire_token_by_device_flow(flow)
+
+
             st.session_state.accounts = app.get_accounts()
                 
         
         progress_bar.progress(50, text="Authenticating...")
         if "access_token" in result:
             # Calling graph using the access token
-            graph_response = requests.get(  # Use token to call downstream service
-                "https://graph.microsoft.com/v1.0/me",
-                headers={'Authorization': 'Bearer ' + result['access_token']},)
+            # graph_response = requests.get(  # Use token to call downstream service
+            #     "https://graph.microsoft.com/v1.0/me",
+            #     headers={'Authorization': 'Bearer ' + result['access_token']},)
             
             st.session_state.user = result['id_token_claims']['name']
             st.session_state.email = result['id_token_claims']['preferred_username']

@@ -1,9 +1,5 @@
 
-TERMS_OF_USE="""========================================================
-Remote Informed Consent & Terms of Use
-========================================================
-
-Ask Narelle - Your Friendly & Personalized 24-7 Teaching Assistant 
+TERMS_OF_USE="""Ask Narelle - Your Friendly & Personalized 24-7 Teaching Assistant 
 NTU-IRB ref no. <IRB-2023-860>
 
 1) Introduction
