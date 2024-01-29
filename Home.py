@@ -52,19 +52,19 @@ if "user" not in st.session_state:
         cols = st.columns(4)
         with cols[0]:
             btn_agree = st.button("Agree and Proceed", disabled=not(st.session_state.agreecheck))
-        with cols[1]:
-            btn_copy = st.button("Copy Consent Form")
+        # with cols[1]:
+        #     btn_copy = st.button("Copy Consent Form")
 
-    if btn_copy:
-        pyperclip.copy(f"{LongText.TERMS_OF_USE} \n\n ✔️ {LongText.CONSENT_ACKNOWLEDGEMENT}")
-        msg = st.success("Text Copied...")
-        time.sleep(2)
-        msg.empty()
+    # if btn_copy:
+    #     pyperclip.copy(f"{LongText.TERMS_OF_USE} \n\n ✔️ {LongText.CONSENT_ACKNOWLEDGEMENT}")
+    #     msg = st.success("Text Copied...")
+    #     time.sleep(2)
+    #     msg.empty()
 
     if btn_agree:
         informed_consent_form.empty()
         st.markdown(''':orange[To prevent unauthorise usage and abuse of the system, we will need you to verify that you are an NTU student. Please follow the verfication process below to continue... ]''')
-        progress_bar = st.progress(0, text="Redirecting...")
+        progress_bar = st.progress(0, text="Preparing...")
         app = PublicClientApplication(
         client_id=APP_REGISTRATION_CLIENT_ID, 
         authority='https://login.microsoftonline.com/common'
@@ -92,22 +92,24 @@ if "user" not in st.session_state:
             # result = app.acquire_token_interactive(scopes=["User.Read"])
 
             # Using Authentication Flow Instead:
+            progress_bar.progress(20, text="Authenticating...")
             flow = app.initiate_device_flow(scopes=["User.Read"])
 
             # print(f"URL: {flow['verification_uri']}, Access Code: {flow['user_code']}")
 
-            st.write(f" \n1) Go to : {flow['verification_uri']}\n2) Enter Access Code: {flow['user_code']}\n 3) Verify Identity with NTU Email\n 4) Accept App Access Permission.")
+            st.write(f"\n1) Copy the Access Code: :orange[{flow['user_code']}] \n2) Go to : {flow['verification_uri']}\n 3) Verify Identity with NTU Email\n 4) Accept App Access Permission.")
 
             # st.write(f"Authentication Process: \n1) Go to : {flow['verification_uri']}\n2) Enter Access Code: {flow['user_code']}\n 3) Verify Identity with NTU Email\n 4) Accept App Access Permission.")
             
             result = app.acquire_token_by_device_flow(flow)
+            progress_bar.progress(30, text="Receiving signals from microsoft server...")
 
 
             st.session_state.accounts = app.get_accounts()
                 
         
-        progress_bar.progress(50, text="Authenticating...")
         if "access_token" in result:
+            progress_bar.progress(50, text="Retriving & checking profile")
             # Calling graph using the access token
             # graph_response = requests.get(  # Use token to call downstream service
             #     "https://graph.microsoft.com/v1.0/me",
@@ -115,43 +117,48 @@ if "user" not in st.session_state:
             
             st.session_state.user = result['id_token_claims']['name']
             st.session_state.email = result['id_token_claims']['preferred_username']
-            progress_bar.progress(50, text="Retriving profile")
+            
+            if "ntu.edu.sg" in st.session_state.email[-10:]:
+                ## INITIALIZED CONVERSATIONS
+                progress_bar.progress(80, text="Waking up Narelle...")
+                DB_HOST = os.environ['CA_MONGO_DB_HOST']
+                DB_USER = os.environ['CA_MONGO_DB_USER']
+                DB_PASS = os.environ['CA_MONGO_DB_PASS']
+                # st.session_state.chatlog = DBConnector(DB_HOST, DB_USER, DB_PASS).getDB("chatlog")
+                st.session_state.chatlog = DBConnector(DB_HOST).getDB("chatlog")
 
-            ## INITIALIZED CONVERSATIONS
-            progress_bar.progress(80, text="Waking up Narelle...")
-            DB_HOST = os.environ['CA_MONGO_DB_HOST']
-            DB_USER = os.environ['CA_MONGO_DB_USER']
-            DB_PASS = os.environ['CA_MONGO_DB_PASS']
-            # st.session_state.chatlog = DBConnector(DB_HOST, DB_USER, DB_PASS).getDB("chatlog")
-            st.session_state.chatlog = DBConnector(DB_HOST).getDB("chatlog")
+                ## Initializing Conversations
+                st.session_state.tz = pytz.timezone("Asia/Singapore")
+                st.session_state.starttime = getTime()
+                # init_time = {
+                #                 "text" : st.session_state.starttime.strftime("%Y-%m-%d %H:%M:%S"),
+                #                 "timestamp": st.session_state.starttime.timestamp()
+                #             }
+                conversation = {
+                    "stime" : getTime(),
+                    "user": st.session_state.user,
+                    "email": st.session_state.email,
+                    "messages":[],
+                    "last_interact": getTime() 
+                }
+                st.session_state.conv_id = st.session_state.chatlog.conversations.insert_one(conversation).inserted_id
 
-            ## Initializing Conversations
-            st.session_state.tz = pytz.timezone("Asia/Singapore")
-            st.session_state.starttime = getTime()
-            # init_time = {
-            #                 "text" : st.session_state.starttime.strftime("%Y-%m-%d %H:%M:%S"),
-            #                 "timestamp": st.session_state.starttime.timestamp()
-            #             }
-            conversation = {
-                "stime" : getTime(),
-                "user": st.session_state.user,
-                "email": st.session_state.email,
-                "messages":[],
-                "last_interact": getTime() 
-            }
-            st.session_state.conv_id = st.session_state.chatlog.conversations.insert_one(conversation).inserted_id
+                LLM_DEPLOYMENT_NAME = os.environ['AZURE_OPENAI_DEPLOYMENT_NAME']
+                LLM_MODEL_NAME = os.environ['AZURE_OPENAI_MODEL_NAME']
+                st.session_state.llm = Narelle(deployment_name=LLM_DEPLOYMENT_NAME, model_name=LLM_MODEL_NAME)
+                st.session_state.conversation = []
+                st.session_state.display_messages = [{"role":"ai", "content":f"{LongText.NARELLE_GREETINGS}", "recorded_on": getTime()}]
 
-            LLM_DEPLOYMENT_NAME = os.environ['AZURE_OPENAI_DEPLOYMENT_NAME']
-            LLM_MODEL_NAME = os.environ['AZURE_OPENAI_MODEL_NAME']
-            st.session_state.llm = Narelle(deployment_name=LLM_DEPLOYMENT_NAME, model_name=LLM_MODEL_NAME)
-            st.session_state.conversation = []
-            st.session_state.display_messages = [{"role":"ai", "content":f"{LongText.NARELLE_GREETINGS}", "recorded_on": getTime()}]
-
-            progress_bar.progress(100, text="Narelle is Ready")
-            time.sleep(2)
-            progress_bar.empty()
-            time.sleep(1)
-            st.rerun()
+                progress_bar.progress(100, text="Narelle is Ready")
+                time.sleep(2)
+                progress_bar.empty()
+                st.rerun()
+            else:
+                del st.session_state.user
+                st.error("Please verify using your NTU email address")
+                if st.button("Retry"):
+                    st.rerun()
+                
         else:
             st.write(result.get("error"))
             st.write(result.get("error_description"))
