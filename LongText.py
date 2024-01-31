@@ -3,8 +3,9 @@ TERMS_OF_USE="""========================================================
 REMOTE INFORMED CONSENT & TERMS OF USE
 ========================================================
 
-Ask Narelle - Your Friendly & Personalized 24-7 Teaching Assistant 
+Project Title: Ask Narelle - Your Friendly & Personalized 24-7 Teaching Assistant 
 NTU-IRB ref no. <IRB-2023-860>
+Version: 29 Jan 2024
 
 1) Introduction
 “Ask Narelle”, is an automated chatbot developed on top of Large Language Model which plays a partial role as teaching assistant to answer student queries about the course SC1015/CE1115/CZ1115 - Introduction to Data Science and Artificial Intelligence. The chatbot was developed mainly for the research study titled “Ask Narelle - Your Friendly & Personalized 24-7 Teaching Assistant”. Before you proceed and use the chatbot, it is important for you to understand the purpose of the research study and what will be expected of you.
