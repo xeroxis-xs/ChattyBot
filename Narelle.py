@@ -18,6 +18,8 @@ class Narelle:
         
         self.llm = AzureChatOpenAI(deployment_name=deployment_name, 
                                    model_name=model_name, 
+                                #    azure_endpoint=os.environ['AZURE_OPENAI_ENDPOINT'],
+                                #    api_key=os.environ['OPENAI_API_KEY'],
                                    temperature=temperature)
         self.retriever = AN_Retriver()
         self.memory = ConversationBufferMemory()

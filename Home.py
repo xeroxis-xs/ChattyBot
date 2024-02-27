@@ -119,13 +119,13 @@ if "user" not in st.session_state:
 
             
             # Option 1: Using Authentication Flow Instead:
-            flow = app.initiate_device_flow(scopes=["User.Read"])
-            st.write(f"\n1) Copy the Access Code: :red[{flow['user_code']}] \n2) Go to : {flow['verification_uri']}\n 3) Verify Identity with NTU Email\n 4) Accept App Access Permission.")
-            result = app.acquire_token_by_device_flow(flow)
+            # flow = app.initiate_device_flow(scopes=["User.Read"])
+            # st.write(f"\n1) Copy the Access Code: :red[{flow['user_code']}] \n2) Go to : {flow['verification_uri']}\n 3) Verify Identity with NTU Email\n 4) Accept App Access Permission.")
+            # result = app.acquire_token_by_device_flow(flow)
 
             
             # Option 2: Using Popup Login (did not work with Azure Web App service):
-            # result = app.acquire_token_interactive(scopes=["User.Read"])
+            result = app.acquire_token_interactive(scopes=["User.Read"])
             
             progress_bar.progress(30, text="Receiving signals from microsoft server...")
             st.session_state.accounts = app.get_accounts()
@@ -165,6 +165,7 @@ if "user" not in st.session_state:
                     "llm_model_name": os.environ['AZURE_OPENAI_MODEL_NAME'],
                     "vectorstore_index":os.environ['CA_AZURE_VECTORSTORE_INDEX']
                 }
+                
                 st.session_state.conv_id = st.session_state.mongodb.conversations.insert_one(conversation).inserted_id
 
                 st.session_state.conversation = []

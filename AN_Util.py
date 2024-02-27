@@ -13,9 +13,6 @@ from bson.objectid import ObjectId
 
 
 load_dotenv()
-# print("ep: ", os.environ['CA_AZURE_VECTORSTORE_ENDPOINT'])
-# print("key: ", os.environ['CA_AZURE_VECTORSTORE_KEY'])
-# print("index: ", os.environ['CA_AZURE_VECTORSTORE_INDEX'])
 
 class AN_Retriver:
     def __init__(self, model = "text-embedding-ada-002"):
@@ -26,7 +23,7 @@ class AN_Retriver:
         self.index_name = os.environ['CA_AZURE_VECTORSTORE_INDEX']  
 
         self.embeddings = AzureOpenAIEmbeddings(
-            azure_deployment="asknarelle-experimental-text-embedding-ada-002"
+            azure_deployment=os.environ['CA_AZURE_TEXT_EMBEDDING']  
         )
 
         self.vector_store= AzureSearch(
