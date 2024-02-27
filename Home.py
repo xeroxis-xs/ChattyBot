@@ -115,12 +115,17 @@ if "user" not in st.session_state:
         #     result = app.acquire_token_silent(["User.Read"], account=chosen)
 
         if not result:
-            # Using Authentication Flow Instead:
             progress_bar.progress(20, text="Authenticating...")
-            flow = app.initiate_device_flow(scopes=["User.Read"])
 
-            st.write(f"\n1) Copy the Access Code: :red[{flow['user_code']}] \n2) Go to : {flow['verification_uri']}\n 3) Verify Identity with NTU Email\n 4) Accept App Access Permission.")
-            result = app.acquire_token_by_device_flow(flow)
+            
+            # Option 1: Using Authentication Flow Instead:
+            # flow = app.initiate_device_flow(scopes=["User.Read"])
+            # st.write(f"\n1) Copy the Access Code: :red[{flow['user_code']}] \n2) Go to : {flow['verification_uri']}\n 3) Verify Identity with NTU Email\n 4) Accept App Access Permission.")
+            # result = app.acquire_token_by_device_flow(flow)
+
+            
+            # Option 2: Using Popup Login:
+            result = app.acquire_token_interactive(scopes=["User.Read"])
             
             progress_bar.progress(30, text="Receiving signals from microsoft server...")
             st.session_state.accounts = app.get_accounts()
@@ -155,7 +160,10 @@ if "user" not in st.session_state:
                     "user": st.session_state.user,
                     "email": st.session_state.email,
                     "messages":[],
-                    "last_interact": getTime() 
+                    "last_interact": getTime(),
+                    "llm_deployment_name":os.environ['AZURE_OPENAI_DEPLOYMENT_NAME'],
+                    "llm_model_name": os.environ['AZURE_OPENAI_MODEL_NAME'],
+                    "vectorstore_index":os.environ['CA_AZURE_VECTORSTORE_INDEX']
                 }
                 st.session_state.conv_id = st.session_state.mongodb.conversations.insert_one(conversation).inserted_id
 
@@ -192,6 +200,8 @@ else:
         st.session_state.display_messages.append(u_message)
         st.session_state.conversation.append(u_message)
         st.session_state.mongodb.conversations.update_one({"_id":st.session_state.conv_id}, {"$push":{"messages":u_message}, "$set":{"last_interact": getTime()}})
+        if "thank" in question:
+            st.balloons()
         
         
         answer, token_cost = st.session_state.llm.answer_this(query=question)
