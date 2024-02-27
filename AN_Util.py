@@ -21,9 +21,10 @@ class AN_Retriver:
         self.vector_store_endpoint = os.environ['CA_AZURE_VECTORSTORE_ENDPOINT']
         self.vector_store_key  = os.environ['CA_AZURE_VECTORSTORE_KEY']
         self.index_name = os.environ['CA_AZURE_VECTORSTORE_INDEX']  
-
+        
+        # print(f"TEXT EMBEDDING: {os.environ['CA_AZURE_TEXT_EMBEDDING']}")
         self.embeddings = AzureOpenAIEmbeddings(
-            azure_deployment=os.environ['CA_AZURE_TEXT_EMBEDDING']  
+            azure_deployment="asknarelle-experimental-text-embedding-ada-002"  
         )
 
         self.vector_store= AzureSearch(
