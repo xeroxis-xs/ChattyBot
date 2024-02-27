@@ -37,11 +37,14 @@ class Narelle:
     
     def get_context(self, query):
         contexts = []
+        sources = []
 
-        documents = self.retriever.search(query)
+        documents = self.retriever.search(query, k=10)
         for doc in documents:
             contexts.append(SystemMessage(content=f"context: {doc.page_content}"))
-        return contexts
+            sources.append(doc.metadata['title'].split(".")[0])
+        # print(f"LIST: {sources}\nSET: {set(sources)}")
+        return contexts, list(set(sources))
     
     def get_total_tokens_cost(self):
         return {"overall_cost": self.total_api_cost, "overall_tokens":self.total_api_tokens}
@@ -53,7 +56,7 @@ class Narelle:
 
         # If no context provided, then retrieve document / context based on the query
         if contexts is None:
-            contexts = self.get_context(query)
+            contexts, sources = self.get_context(query)
 
         # Construct user query into User Message and append to local context and conversation later
         humanquery = HumanMessage(content=query)
@@ -77,7 +80,7 @@ class Narelle:
 
         else:
             response = SystemMessage(content="No context provided, hence no response")
-        return response.content, cost
+        return response.content, cost, sources
     
 
     # def answer_this(self, query, contexts=None):
@@ -103,5 +106,6 @@ def test():
     print(f"The total cost of this conversation is: {bot.total_api_cost:.6f}")
 
 if __name__ == "__main__":
-    # test()
+    print("[CA-SYS] Start")
+    test()
     print("[CA-SYS] Agent initialized")
