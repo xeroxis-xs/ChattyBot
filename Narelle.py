@@ -37,11 +37,11 @@ class Narelle:
     def get_llm(self):
         return self.llm
     
-    def get_context(self, query):
+    def get_context(self, query, k=5):
         contexts = []
         sources = []
 
-        documents = self.retriever.search(query, k=10)
+        documents = self.retriever.search(query, k=k)
         for doc in documents:
             contexts.append(SystemMessage(content=f"context: {doc.page_content}"))
             sources.append(doc.metadata['title'].split(".")[0])

@@ -4,9 +4,12 @@ from datetime import datetime
 import pytz
 import os
 import requests
+from uuid import uuid4
 from dotenv import load_dotenv
 
 import streamlit as st
+from streamlit_feedback import streamlit_feedback
+
 from msal import ConfidentialClientApplication, PublicClientApplication
 
 from langchain.chat_models import ChatOpenAI
@@ -26,13 +29,22 @@ def getTime():
                 }
     return curr_time
 
+
+def update_feedback(response):
+    st.session_state.display_messages[-1]['feedback'] = response
+    st.session_state.fb_key = str(uuid4())
+    msg_count = len(st.session_state.mongodb.conversations.find_one({"_id":st.session_state.conv_id})["messages"]) - 1
+    # st.toast(f"Total Msg: {msg_count}")
+    st.session_state.mongodb.conversations.update_one({"_id":st.session_state.conv_id}, {"$set":{f"messages.{msg_count}.feedback":response}})
+    st.toast("Thanks for your feedback")
+
+
 def streaming_respond(msg):
     for word in msg.split(" "):
         yield word + " "
         time.sleep(0.05)
 
 def logout():
-
     del st.session_state.user
     del st.session_state.email
     st.session_state.conversation = []
@@ -85,6 +97,8 @@ if "user" not in st.session_state:
             btn_agree = st.button("Agree and Proceed", disabled=not(st.session_state.agreecheck))
         with cols[1]:
             btn_inform_consent = st.link_button("Download Consent", url=os.environ['INFORM_CONSENT_SC1015'])
+
+
 
 
     if btn_agree:
@@ -186,15 +200,28 @@ if "user" not in st.session_state:
             st.write(result.get("correlation_id"))  # You may need this when reporting a bug
 
 else:
+    
+    if "fb_key" not in st.session_state:
+        st.session_state.fb_key = str(uuid4())
+
+    ## DISPLAY ALL CHAT MESSAGES    
     for message in st.session_state.display_messages:
         role = message["role"]
         if role == 'ai':
             with st.chat_message(role, avatar=chat_avatars[role]):
-                st.markdown(message["content"])
+                st.markdown(message["content"])       
+                ## Showing Thumbs Up
+                if "feedback" in message:
+                    if message['feedback'] is not None:
+                        st.markdown(f"<div style='text-align:right;'>{message['feedback']['score']}</div>", unsafe_allow_html=True,)
+                # if message == st.session_state.display_messages[-1]:
+                    
+                
         else:
             with st.chat_message(role, avatar=chat_avatars[role][st.session_state.user_avatar]):
                 st.markdown(message["content"])
 
+    ## INPUT QUESTION AND PROCESS QUERY
     if question:= st.chat_input("Type in your question here"):
         st.chat_message("user", avatar=chat_avatars['user'][st.session_state.user_avatar]).markdown(question)
         u_message = {"role":"user", "content":question, "recorded_on": getTime()}
@@ -206,25 +233,39 @@ else:
         
         
         answer, token_cost, sources = st.session_state.llm.answer_this(query=question)
-        answer = f"{answer} \n\n\n **Sources:** *{sources}*"
-        st.chat_message("ai", avatar=chat_avatars['ai']).markdown(answer)
-        # with st.chat_message("assistant"):
-        #     st.write_stream(streaming_respond(answer))
-        
+        sources_text = ""
+        if "sorry" not in answer:
+            sources_text = f"\n\n\n **Sources:** *{sources}*"
+        answer = f"{answer} {sources_text}"
+
+        with st.chat_message("ai", avatar=chat_avatars['ai']):
+            st.markdown(answer)
+            ## If recent responds got feedback
+
 
         ai_message = {"role":"ai", "content":f"{answer}", "recorded_on": getTime(), "token_cost":token_cost}
         st.session_state.display_messages.append(ai_message)
         st.session_state.conversation.append(ai_message)
         st.session_state.mongodb.conversations.update_one({"_id":st.session_state.conv_id}, {"$push":{"messages":ai_message}, "$set":{"last_interact": getTime(), "overall_cost":st.session_state.llm.get_total_tokens_cost()}})
-    
+
+    if len(st.session_state.display_messages) > 1:
+        streamlit_feedback(
+            feedback_type="thumbs", 
+            optional_text_label="[Optional] let us know what do you think about this response...",
+            key=st.session_state.fb_key,
+            on_submit=update_feedback
+        )
+        
+
     with st.sidebar:
         st.header("Profile")
         st.markdown(f"**{st.session_state.user}**   \n   *({st.session_state.email})*")
         st.radio("Avatar: ", ["Male", "Female"], horizontal=True, key="user_avatar")
-        costing = st.session_state.llm.get_total_tokens_cost()
-        st.metric("Consumption for this conversation", f"USD {costing['overall_cost']:.4f}", delta=f"Tokens: {costing['overall_tokens']}", delta_color="off")
+        if "Ong Chin Ann" in st.session_state.user:
+            costing = st.session_state.llm.get_total_tokens_cost()
+            st.metric("Consumption for this conversation", f"USD {costing['overall_cost']:.4f}", delta=f"Tokens: {costing['overall_tokens']}", delta_color="off")
+            st.markdown(f"<span style='font-size:8pt; '>Azure OpenAI Service Version: {os.environ['OPENAI_API_VERSION']}</span>", unsafe_allow_html=True)
 
         feedback_form = st.link_button("Feedback", url="https://forms.office.com/r/hVDQysi0B2", use_container_width=True)
         if st.button("Logout", use_container_width=True):
             logout()
-
