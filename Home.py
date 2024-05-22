@@ -47,6 +47,8 @@ def logout():
     del st.session_state.user
     del st.session_state.email
     del st.session_state.access_token
+    del st.session_state.auth_code
+    st.query_params.clear()
     st.session_state.conversation = []
     st.session_state.display_messages = None
     st.rerun()
@@ -120,6 +122,8 @@ app = ConfidentialClientApplication(
     client_credential=CLIENT_SECRET
 )
 
+logger.info("----------- New state ----------")
+
 # Initialise Streamlit App
 st.set_page_config(page_title='AskNarelle - Your friendly course assistant', page_icon="🙋‍♀️")
 st.title(":woman-raising-hand: Ask Narelle")
@@ -135,147 +139,152 @@ chat_avatars = {
 
 # Initialise session state if not already initialised
 if "user" not in st.session_state:
-    print("No user in session state")
     st.session_state.user = None
 if "email" not in st.session_state:
     st.session_state.email = None
 if "access_token" not in st.session_state:
     st.session_state.access_token = None
+if "auth_code" not in st.session_state:
+    st.session_state.auth_code = None
 
 
 # User has not signed in
 if st.session_state.user is None:
-    print("No user in session state")
-    with informed_consent_form.container():
-        # Display consent form
-        with st.container(height=300):
-            st.markdown(LongText.TERMS_OF_USE)
-        # st.text_area("INFORMED CONSENT", label_visibility="collapsed" ,placeholder=LongText.TERMS_OF_USE, disabled=True, height=300)
-        st.checkbox(LongText.CONSENT_ACKNOWLEDGEMENT, key="agreecheck")
-        cols = st.columns(4)
+    st.session_state.auth_code = st.query_params.get("code")
+    if st.session_state.auth_code is None:
+        with informed_consent_form.container():
+            # Display consent form
+            with st.container(height=300):
+                st.markdown(LongText.TERMS_OF_USE)
+            # st.text_area("INFORMED CONSENT", label_visibility="collapsed" ,placeholder=LongText.TERMS_OF_USE, disabled=True, height=300)
+            st.checkbox(LongText.CONSENT_ACKNOWLEDGEMENT, key="agreecheck")
+            cols = st.columns(4)
 
-        # Display buttons
-        with cols[0]:
-            btn_agree = st.button("Agree and Proceed", disabled=not st.session_state.agreecheck)
-        with cols[1]:
-            btn_inform_consent = st.link_button("Download Consent", url=os.environ['INFORM_CONSENT_SC1015'])
+            # Display buttons
+            with cols[0]:
+                btn_agree = st.button("Agree and Proceed", disabled=not st.session_state.agreecheck)
+            with cols[1]:
+                btn_inform_consent = st.link_button("Download Consent", url=os.environ['INFORM_CONSENT_SC1015'])
 
-    # If user agrees to the terms of use
-    if btn_agree:
-        informed_consent_form.empty()
-        auth_url = get_auth_url(app)
-        st.markdown(
-            f"To prevent unauthorised usage and abuse of the system, we will need you to verify that you are an NTU "
-            f"student. Please follow the verification process below to continue...")
-        # st.page_link(auth_url, label="Proceed to Verification")
-        st.markdown(f'<a href="{auth_url}" target="_self">Proceed to Verification</a>', unsafe_allow_html=True)
-        progress_bar = st.progress(0, text="Waiting...")
+        # If user agrees to the terms of use
+        if btn_agree:
+            informed_consent_form.empty()
+            auth_url = get_auth_url(app)
+            st.markdown(
+                f"To prevent unauthorised usage and abuse of the system, we will need you to verify that you are an NTU "
+                f"student. Please follow the verification process below to continue...")
+            # st.page_link(auth_url, label="Proceed to Verification")
+            st.markdown(f'<a href="{auth_url}" target="_self">Proceed to Verification</a>', unsafe_allow_html=True)
+            progress_bar = st.progress(0, text="Please click the link above to proceed...")
 
-        # APP_REGISTRATION_CLIENT_ID = os.environ['APP_REG_CLIENT_ID']
-        # app = PublicClientApplication(
-        #     client_id=APP_REGISTRATION_CLIENT_ID,
-        #     authority='https://login.microsoftonline.com/common'
-        #     # token_cache=...  # Default cache is in memory only.
-        #     # You can learn how to use SerializableTokenCache from
-        #     # https://msal-python.readthedocs.io/en/latest/#msal.SerializableTokenCache
-        # )
-        # result = None
-        #
-        # # Firstly, check the cache to see if this end user has signed in before
-        # st.session_state.accounts = app.get_accounts()
+            # APP_REGISTRATION_CLIENT_ID = os.environ['APP_REG_CLIENT_ID']
+            # app = PublicClientApplication(
+            #     client_id=APP_REGISTRATION_CLIENT_ID,
+            #     authority='https://login.microsoftonline.com/common'
+            #     # token_cache=...  # Default cache is in memory only.
+            #     # You can learn how to use SerializableTokenCache from
+            #     # https://msal-python.readthedocs.io/en/latest/#msal.SerializableTokenCache
+            # )
+            # result = None
+            #
+            # # Firstly, check the cache to see if this end user has signed in before
+            # st.session_state.accounts = app.get_accounts()
 
-        # if accounts:
-        #     logging.info("Account(s) exists in cache, probably with token too. Let's try.")
-        #     print("Account(s) already signed in:")
-        #     for a in accounts:
-        #         print(a["username"])
-        #     chosen = accounts[0]  # Assuming the end user chose this one to proceed
-        #     print("Proceed with account: %s" % chosen["username"])
-        #     # Now let's try to find a token in cache for this account
-        #     result = app.acquire_token_silent(["User.Read"], account=chosen)
+            # if accounts:
+            #     logging.info("Account(s) exists in cache, probably with token too. Let's try.")
+            #     print("Account(s) already signed in:")
+            #     for a in accounts:
+            #         print(a["username"])
+            #     chosen = accounts[0]  # Assuming the end user chose this one to proceed
+            #     print("Proceed with account: %s" % chosen["username"])
+            #     # Now let's try to find a token in cache for this account
+            #     result = app.acquire_token_silent(["User.Read"], account=chosen)
 
-        # result = get_token_from_code(app)
-        # progress_bar.progress(20, text="Authenticating...")
+            # result = get_token_from_code(app)
+            # progress_bar.progress(20, text="Authenticating...")
 
-        # if not result:
-        #     progress_bar.progress(20, text="Authenticating...")
-        #
-        #     # Option 1: Using Authentication Flow Instead:
-        #     flow = app.initiate_device_flow(scopes=["User.Read"])
-        #     st.write(
-        #         f"\n1) Copy the Access Code: :red[{flow['user_code']}] \n2) Go to : {flow['verification_uri']}\n 3) Verify Identity with NTU Email\n 4) Accept App Access Permission.")
-        #     result = app.acquire_token_by_device_flow(flow)
-        #
-        #     # Option 2: Using Popup Login (did not work with Azure Web App service):
-        #     # result = app.acquire_token_interactive(scopes=["User.Read"])
-        #
-        #     progress_bar.progress(30, text="Receiving signals from microsoft server...")
-        #     st.session_state.accounts = app.get_accounts()
+            # if not result:
+            #     progress_bar.progress(20, text="Authenticating...")
+            #
+            #     # Option 1: Using Authentication Flow Instead:
+            #     flow = app.initiate_device_flow(scopes=["User.Read"])
+            #     st.write(
+            #         f"\n1) Copy the Access Code: :red[{flow['user_code']}] \n2) Go to : {flow['verification_uri']}\n 3) Verify Identity with NTU Email\n 4) Accept App Access Permission.")
+            #     result = app.acquire_token_by_device_flow(flow)
+            #
+            #     # Option 2: Using Popup Login (did not work with Azure Web App service):
+            #     # result = app.acquire_token_interactive(scopes=["User.Read"])
+            #
+            #     progress_bar.progress(30, text="Receiving signals from microsoft server...")
+            #     st.session_state.accounts = app.get_accounts()
 
-        # Check for the authorization code in the query parameters
-        auth_code = st.query_params.get("code")
-        # auth_code = query_params.code
-        logger.info(auth_code)
+            # Check for the authorization code in the query parameters
 
-        if auth_code:
-            result = get_token_from_code(app, auth_code)
-            logger.info(result)
-            # If login is successful
-            if "access_token" in result:
-                progress_bar.progress(50, text="Retrieving & checking profile")
+            # auth_code = query_params.code
 
-                st.session_state.user = result['id_token_claims']['name']
-                st.session_state.email = result['id_token_claims']['preferred_username']
+    else:
+        progress_bar = st.progress(20, text="Authenticating...")
+        result = get_token_from_code(app, st.session_state.auth_code)
+        # If login is successful
+        if "access_token" in result:
+            progress_bar.progress(40, text="Retrieving profile...")
 
-                logger.info(st.session_state.user)
+            st.session_state.user = result['id_token_claims']['name']
+            st.session_state.email = result['id_token_claims']['preferred_username']
 
-                st.session_state.mongodb = DBConnector(DB_HOST).getDB(DB_NAME)
-                allowed_users = st.session_state.mongodb.users_permission.find_one({"status": "allowed"})['users']
-                blocked_users = st.session_state.mongodb.users_permission.find_one({"status": "blocked"})['users']
+            logger.info(st.session_state.user)
 
-                if st.session_state.email in blocked_users:
-                    unauthorise(progress_text="Unauthorised user...", error_msg="This account has been blocked")
+            st.session_state.mongodb = DBConnector(DB_HOST).getDB(DB_NAME)
+            allowed_users = st.session_state.mongodb.users_permission.find_one({"status": "allowed"})['users']
+            blocked_users = st.session_state.mongodb.users_permission.find_one({"status": "blocked"})['users']
 
-                elif "ntu.edu.sg" in st.session_state.email[-10:] or st.session_state.email in allowed_users:
-                    LLM_DEPLOYMENT_NAME = os.environ['AZURE_OPENAI_DEPLOYMENT_NAME']
-                    LLM_MODEL_NAME = os.environ['AZURE_OPENAI_MODEL_NAME']
-                    st.session_state.llm = Narelle(deployment_name=LLM_DEPLOYMENT_NAME, model_name=LLM_MODEL_NAME)
+            progress_bar.progress(60, text="Checking profile...")
 
-                    # Initializing Conversations
-                    progress_bar.progress(70, text="Waking up Narelle...")
-                    st.session_state.starttime = get_time()
-                    conversation = {
-                        "stime": get_time(),
-                        "user": st.session_state.user,
-                        "email": st.session_state.email,
-                        "messages": [],
-                        "last_interact": get_time(),
-                        "llm_deployment_name": os.environ['AZURE_OPENAI_DEPLOYMENT_NAME'],
-                        "llm_model_name": os.environ['AZURE_OPENAI_MODEL_NAME'],
-                        "vectorstore_index": os.environ['CA_AZURE_VECTORSTORE_INDEX']
-                    }
+            if st.session_state.email in blocked_users:
+                unauthorise(progress_text="Unauthorised user...", error_msg="This account has been blocked")
 
-                    st.session_state.conv_id = st.session_state.mongodb.conversations.insert_one(
-                        conversation).inserted_id
+            elif "ntu.edu.sg" in st.session_state.email[-10:] or st.session_state.email in allowed_users:
+                progress_bar.progress(70, text="Successfully verified!")
 
-                    st.session_state.conversation = []
-                    st.session_state.display_messages = [
-                        {"role": "ai", "content": f"{LongText.NARELLE_GREETINGS}", "recorded_on": get_time()}]
+                LLM_DEPLOYMENT_NAME = os.environ['AZURE_OPENAI_DEPLOYMENT_NAME']
+                LLM_MODEL_NAME = os.environ['AZURE_OPENAI_MODEL_NAME']
+                st.session_state.llm = Narelle(deployment_name=LLM_DEPLOYMENT_NAME, model_name=LLM_MODEL_NAME)
 
-                    progress_bar.progress(100, text="Narelle is Ready")
-                    time.sleep(1)
-                    progress_bar.empty()
-                    st.rerun()
+                # Initializing Conversations
+                progress_bar.progress(80, text="Initialising Narelle...")
+                st.session_state.starttime = get_time()
+                conversation = {
+                    "stime": get_time(),
+                    "user": st.session_state.user,
+                    "email": st.session_state.email,
+                    "messages": [],
+                    "last_interact": get_time(),
+                    "llm_deployment_name": os.environ['AZURE_OPENAI_DEPLOYMENT_NAME'],
+                    "llm_model_name": os.environ['AZURE_OPENAI_MODEL_NAME'],
+                    "vectorstore_index": os.environ['CA_AZURE_VECTORSTORE_INDEX']
+                }
 
-                else:
-                    unauthorise(progress_text="Unauthorised user...",
-                                error_msg="Please verify using your NTU email address")
+                st.session_state.conv_id = st.session_state.mongodb.conversations.insert_one(
+                    conversation).inserted_id
 
-            # Login failed
+                st.session_state.conversation = []
+                st.session_state.display_messages = [
+                    {"role": "ai", "content": f"{LongText.NARELLE_GREETINGS}", "recorded_on": get_time()}]
+
+                progress_bar.progress(100, text="Narelle is Ready!")
+                time.sleep(1)
+                progress_bar.empty()
+                st.rerun()
+
             else:
-                st.write(result.get("error"))
-                st.write(result.get("error_description"))
-                st.write(result.get("correlation_id"))  # You may need this when reporting a bug
+                unauthorise(progress_text="Unauthorised user...",
+                            error_msg="Please verify using your NTU email address")
+
+        # Login failed
+        else:
+            st.write(result.get("error"))
+            st.write(result.get("error_description"))
+            st.write(result.get("correlation_id"))  # You may need this when reporting a bug
 
 # User has signed in
 else:
