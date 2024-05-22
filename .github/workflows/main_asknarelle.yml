@@ -91,5 +91,5 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          docker build -t "${{ secrets.AZURE_CONTAINER_REGISTRY }}/myapp:${{ github.sha }}" .
-          docker push "${{ secrets.AZURE_CONTAINER_REGISTRY }}/myapp:${{ github.sha }}"
+          docker build -t "${{ secrets.AZURE_CONTAINER_REGISTRY }}/chattybot:main-latest" .
+          docker push "${{ secrets.AZURE_CONTAINER_REGISTRY }}/chattybot:main-latest"
