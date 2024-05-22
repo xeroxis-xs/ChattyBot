@@ -1,4 +1,9 @@
 FROM python:3.12-alpine
+
+# Install necessary system dependencies
+RUN apt-get update && \
+    apt-get install -y cmake
+
 EXPOSE 8000
 WORKDIR /app
 
