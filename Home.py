@@ -9,6 +9,7 @@ import streamlit as st
 from streamlit_feedback import streamlit_feedback
 from msal import ConfidentialClientApplication
 
+
 from Narelle import Narelle
 from AN_Util import DBConnector
 import LongText

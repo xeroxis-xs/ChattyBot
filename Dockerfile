@@ -1,4 +1,4 @@
-FROM python:3.8
+FROM python:3.12-alpine
 EXPOSE 8000
 WORKDIR /app
 
