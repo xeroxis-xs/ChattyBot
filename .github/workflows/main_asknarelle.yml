@@ -93,3 +93,4 @@ jobs:
         run: |
           docker build -t "${{ secrets.AZURE_CONTAINER_REGISTRY }}/chattybot:main-latest" .
           docker push "${{ secrets.AZURE_CONTAINER_REGISTRY }}/chattybot:main-latest"
+          docker push "${{ secrets.AZURE_CONTAINER_REGISTRY }}/chattybot:${{ github.sha }}"
