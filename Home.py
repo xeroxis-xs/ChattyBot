@@ -287,6 +287,8 @@ if st.session_state.user is None:
 
 # User has signed in
 else:
+    # Clear query parameters
+    st.query_params.clear()
     # Create a new feedback key if not exist
     if "fb_key" not in st.session_state:
         st.session_state.fb_key = str(uuid4())
