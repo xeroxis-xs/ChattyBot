@@ -150,6 +150,8 @@ if "auth_code" not in st.session_state:
 # User has not signed in
 if st.session_state.user is None:
     st.session_state.auth_code = st.query_params.get("code")
+    # Clear query parameters
+    st.query_params.clear()
     if st.session_state.auth_code is None:
         with informed_consent_form.container():
             # Display consent form
@@ -174,7 +176,7 @@ if st.session_state.user is None:
                 f"student. Please follow the verification process below to continue...")
             # st.page_link(auth_url, label="Proceed to Verification")
             st.markdown(f'<a href="{auth_url}" target="_self">Proceed to Verification</a>', unsafe_allow_html=True)
-            progress_bar = st.progress(0, text="Please click the link above to proceed...")
+            progress_bar = st.progress(0, text="Please click the link above to verify.")
 
             # APP_REGISTRATION_CLIENT_ID = os.environ['APP_REG_CLIENT_ID']
             # app = PublicClientApplication(
@@ -226,7 +228,7 @@ if st.session_state.user is None:
         result = get_token_from_code(app, st.session_state.auth_code)
         # If login is successful
         if "access_token" in result:
-            progress_bar.progress(40, text="Retrieving profile...")
+            progress_bar.progress(50, text="Retrieving and checking profile...")
 
             st.session_state.user = result['id_token_claims']['name']
             st.session_state.email = result['id_token_claims']['preferred_username']
@@ -237,15 +239,12 @@ if st.session_state.user is None:
             allowed_users = st.session_state.mongodb.users_permission.find_one({"status": "allowed"})['users']
             blocked_users = st.session_state.mongodb.users_permission.find_one({"status": "blocked"})['users']
 
-            progress_bar.progress(60, text="Checking profile...")
-
             if st.session_state.email in blocked_users:
                 unauthorise(progress_text="Unauthorised user...", error_msg="This account has been blocked")
 
             elif "ntu.edu.sg" in st.session_state.email[-10:] or st.session_state.email in allowed_users:
-                progress_bar.progress(70, text="Successfully verified!")
 
-                progress_bar.progress(80, text="Initialising Narelle...")
+                progress_bar.progress(70, text="Waking up Narelle...")
                 LLM_DEPLOYMENT_NAME = os.environ['AZURE_OPENAI_DEPLOYMENT_NAME']
                 LLM_MODEL_NAME = os.environ['AZURE_OPENAI_MODEL_NAME']
                 st.session_state.llm = Narelle(deployment_name=LLM_DEPLOYMENT_NAME, model_name=LLM_MODEL_NAME)
@@ -287,8 +286,8 @@ if st.session_state.user is None:
 
 # User has signed in
 else:
-    # Clear query parameters
-    st.query_params.clear()
+    # # Clear query parameters
+    # st.query_params.clear()
     # Create a new feedback key if not exist
     if "fb_key" not in st.session_state:
         st.session_state.fb_key = str(uuid4())
