@@ -44,20 +44,21 @@ def streaming_respond(msg):
 
 
 def logout():
+    st.query_params.clear()
     del st.session_state.user
     del st.session_state.email
-    del st.session_state.access_token
     del st.session_state.auth_code
-    st.query_params.clear()
     st.session_state.conversation = []
     st.session_state.display_messages = None
     st.rerun()
 
 
 def unauthorise(progress_text, error_msg):
+    st.query_params.clear()
     del st.session_state.user
     del st.session_state.email
     del st.session_state.accounts
+    del st.session_state.auth_code
     progress_bar.progress(100, text=progress_text)
 
     st.error(error_msg)
@@ -142,8 +143,6 @@ if "user" not in st.session_state:
     st.session_state.user = None
 if "email" not in st.session_state:
     st.session_state.email = None
-if "access_token" not in st.session_state:
-    st.session_state.access_token = None
 if "auth_code" not in st.session_state:
     st.session_state.auth_code = None
 
