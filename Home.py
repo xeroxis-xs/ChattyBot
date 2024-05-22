@@ -245,12 +245,12 @@ if st.session_state.user is None:
             elif "ntu.edu.sg" in st.session_state.email[-10:] or st.session_state.email in allowed_users:
                 progress_bar.progress(70, text="Successfully verified!")
 
+                progress_bar.progress(80, text="Initialising Narelle...")
                 LLM_DEPLOYMENT_NAME = os.environ['AZURE_OPENAI_DEPLOYMENT_NAME']
                 LLM_MODEL_NAME = os.environ['AZURE_OPENAI_MODEL_NAME']
                 st.session_state.llm = Narelle(deployment_name=LLM_DEPLOYMENT_NAME, model_name=LLM_MODEL_NAME)
 
                 # Initializing Conversations
-                progress_bar.progress(80, text="Initialising Narelle...")
                 st.session_state.starttime = get_time()
                 conversation = {
                     "stime": get_time(),
