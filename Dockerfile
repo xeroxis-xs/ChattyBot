@@ -1,8 +1,4 @@
-FROM python:3.12-alpine
-
-# Install necessary system dependencies
-RUN apt-get update && \
-    apt-get install -y cmake
+FROM python:3.12-slim
 
 EXPOSE 8000
 WORKDIR /app
