@@ -69,7 +69,6 @@ def unauthorise(progress_text, error_msg):
 def get_user_profile():
     return None
 
-
 # @st.cache(allow_output_mutation=True)
 # def get_user_auth():
 #     APP_REGISTRATION_AUTHORITY = os.environ['APP_REG_AUTHORITY']
