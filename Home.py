@@ -57,7 +57,6 @@ def unauthorise(progress_text, error_msg):
     st.query_params.clear()
     del st.session_state.user
     del st.session_state.email
-    del st.session_state.accounts
     del st.session_state.auth_code
     progress_bar.progress(100, text=progress_text)
 
