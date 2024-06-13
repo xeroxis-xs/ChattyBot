@@ -300,17 +300,19 @@ else:
         selected_ticket = get_ticket(selected_ticket_id)
 
         # Currently set to anyone can update the ticket status
-        # Display radio button to update ticket status
+        # Display button to change ticket status
         # if st.session_state.user_type == "instructor":
         if selected_ticket:
-            index = 0 if selected_ticket['status'] == "Open" else 1
-            new_status = st.radio("Update ticket status", ["Open", "Resolved"], horizontal=True, index=index)
-            # Display update button only if status is changed
-            if new_status != selected_ticket['status']:
-                if st.button("Update", use_container_width=True):
-                    update_ticket_status(selected_ticket_id, new_status)
-                    st.success("Status updated")
+            # Display Mark as Resolved button only if status Open
+            if selected_ticket['status'] == "Open":
+                if st.button("Mark as Resolved", use_container_width=True):
+                    update_ticket_status(selected_ticket_id, "Resolved")
                     st.rerun()
+            else:
+                if st.button("Reopen Ticket", use_container_width=True):
+                    update_ticket_status(selected_ticket_id, "Open")
+                    st.rerun()
+
         st.divider()
         st.header("Profile")
         st.markdown(f"**{st.session_state.user}**   \n   *({st.session_state.email})*")
