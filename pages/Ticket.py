@@ -341,7 +341,7 @@ else:
             # Only allow new messages if ticket is open
             new_message = st.chat_input("Type your message here...")
         else:
-            new_message = None
+            new_message = st.chat_input("Ticket is resolved. Reopen ticket to send new message.", disabled=True)
         if new_message:
             # Update ticket with new message for MongoDB
             try:
