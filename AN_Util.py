@@ -19,12 +19,12 @@ class AN_Retriver:
         self.model = model
         ## Vector Score / Azure AI Search
         self.vector_store_endpoint = os.environ['CA_AZURE_VECTORSTORE_ENDPOINT']
-        self.vector_store_key  = os.environ['CA_AZURE_VECTORSTORE_KEY']
+        self.vector_store_key = os.environ['CA_AZURE_VECTORSTORE_KEY']
         self.index_name = os.environ['CA_AZURE_VECTORSTORE_INDEX']  
         
         # print(f"TEXT EMBEDDING: {os.environ['CA_AZURE_TEXT_EMBEDDING']}")
         self.embeddings = AzureOpenAIEmbeddings(
-            azure_deployment="anv2dev-textembeddingada002"
+            azure_deployment=os.environ['CA_AZURE_TEXT_EMBEDDING']
         )
 
         self.vector_store= AzureSearch(
