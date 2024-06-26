@@ -1,6 +1,8 @@
 import os
 import time
 import markdown2
+import requests
+from io import BytesIO
 from datetime import datetime
 import pytz
 from dotenv import load_dotenv
@@ -8,10 +10,10 @@ import streamlit as st
 from msal import ConfidentialClientApplication
 
 from Narelle import Narelle
-from AN_Util import DBConnector
-import LongText
-from Util import setup_logger
-from Email import AzureEmailClient
+from utils.DBConnector import DBConnector
+from texts import LongText
+from utils.Logger import setup_logger
+from utils.Email import AzureEmailClient
 
 
 # Utility Functions
@@ -34,8 +36,7 @@ def logout():
     del st.session_state.user
     del st.session_state.email
     del st.session_state.auth_code
-    st.session_state.conversation = []
-    st.session_state.display_messages = None
+    st.session_state.all_messages = None
     st.rerun()
 
 
@@ -68,6 +69,18 @@ def get_token_from_code(app, auth_code):
     return result
 
 
+def get_user_photo(user_object_id, access_token):
+    # Make a GET request to the Microsoft Graph API
+    headers = {"Authorization": "Bearer " + access_token}
+    response = requests.get(f"https://graph.microsoft.com/v1.0/users/{user_object_id}/photo/$value", headers=headers)
+    if response.status_code == 200:
+        # Convert the binary data to a BytesIO object
+        image_data = BytesIO(response.content)
+        return image_data
+    else:
+        return None
+
+
 def get_tickets(student_email=None, instructor_email=None, status="Open"):
     if student_email:
         return list(tickets_collection.find({"student_email": student_email, "status": status}))
@@ -79,6 +92,14 @@ def get_tickets(student_email=None, instructor_email=None, status="Open"):
 
 def get_ticket(ticket_id):
     return tickets_collection.find_one({"_id": ticket_id})
+
+
+def get_conv_messages(selected_ticket):
+    try:
+        conv_id = selected_ticket['conversation_id']
+        return st.session_state.mongodb.conversations.find_one({"_id": conv_id})['messages']
+    except Exception:
+        st.error(f"Error fetching conversation history")
 
 
 def add_message(ticket_id, sender_name, sender_email, message):
@@ -97,44 +118,98 @@ def add_message(ticket_id, sender_name, sender_email, message):
 def update_ticket_status(ticket_id, status):
     tickets_collection.update_one({"_id": ticket_id}, {"$set": {"status": status}})
 
+
 def convert_markdown_to_html(markdown_text):
     return markdown2.markdown(markdown_text)
 
 
-def display_message(message, sender_type, avatar):
+def display_message(message, sender_name, avatar):
     dt_object = datetime.fromtimestamp(message['timestamp']['timestamp'])
     formatted_date = dt_object.strftime('%d %b %I:%M %p')
-    with st.chat_message(sender_type, avatar=avatar):
-        st.markdown(f"**{message['sender_name']}**")
-
+    with st.chat_message(sender_name, avatar=avatar):
+        formatted_name = sender_name.replace("#", "")
+        st.markdown(f"**{formatted_name}**")
         st.markdown(f"{message['message']}")
         st.caption(f"{formatted_date}")
 
 
 # Main function to display ticket messages
-def display_ticket_messages(selected_ticket, chat_avatars):
+def display_ticket_messages(selected_ticket):
     user_email = st.session_state.email
-    user_avatar = chat_avatars['user'][st.session_state.user_avatar]
 
     for message in selected_ticket['messages']:
         sender_email = message['sender_email']
-        if st.session_state.user_type == "student":
-            if sender_email == user_email:
-                display_message(message, "user", user_avatar)
-            else:
-                display_message(message, "instructor", chat_avatars['instructor'])
+
+        # User view his own message
+        if sender_email == user_email:
+            display_message(message, st.session_state.formatted_name, st.session_state.user_photo)
+        # User view other's message
         else:
-            if sender_email == user_email:
-                display_message(message, "user", user_avatar)
-            else:
-                display_message(message, "student", message['sender_name'].replace("#", ""))
+            display_message(message, message['sender_name'].replace("#", ""), None)
 
 
-# Helper function to read HTML template
-def read_html_template(file_path):
-    with open(file_path, 'r', encoding='utf-8') as file:
-        template = file.read()
-    return template
+def send_new_msg_email(selected_ticket, recipient_email, recipient_name, new_message):
+    try:
+        # Read HTML template
+        new_msg_html_template = email_client.read_html_template("email_template/new_message_email_template.html")
+
+        # Convert markdown to HTML
+        converted_message_html = convert_markdown_to_html(new_message)
+
+        # Customize HTML content
+        html_body = new_msg_html_template.format(
+            recipient_name=selected_ticket['student_name'] if st.session_state.user_type == "instructor" else
+            selected_ticket['instructor_name'],
+            sender_name=st.session_state.user,
+            latest_message=converted_message_html,
+            streamlit_app_url="https://asknarelle.azurewebsites.net/"
+        )
+
+        # Send email notification
+        subject = f"[AskNarelle] New message in Ticket {selected_ticket['_id']}"
+        plain_text_body = new_message
+        from_email = "DoNotReply@140197c9-8f19-4c8a-9bb4-23adfc6600ef.azurecomm.net"
+        message = email_client.draft_email(
+            subject,
+            html_body,
+            plain_text_body,
+            [recipient_email],
+            [recipient_name],
+            from_email
+        )
+        email_client.send_email(message)
+    except Exception as e:
+        st.error(f"Error sending email notification: {e}")
+
+
+def send_update_ticket_status_email(selected_ticket, status):
+    try:
+        # Read HTML template
+        status_update_html_template = email_client.read_html_template("email_template/status_update_for_email_template.html")
+
+        # Customize HTML content
+        html_body = status_update_html_template.format(
+            ticket_id=selected_ticket['_id'],
+            ticket_title=selected_ticket['title'],
+            status=status,
+            streamlit_app_url="https://asknarelle.azurewebsites.net/"
+        )
+
+        # Send email notification
+        subject = f"[AskNarelle] Status Update for Ticket {selected_ticket['_id']}"
+        plain_text_body = f"Status of the Ticket {selected_ticket['_id']} has been marked as {status}"
+        from_email = "DoNotReply@140197c9-8f19-4c8a-9bb4-23adfc6600ef.azurecomm.net"
+        message = email_client.draft_email(
+            subject,
+            html_body,
+            plain_text_body,
+            [selected_ticket['student_email'], selected_ticket['instructor_email']],
+             [selected_ticket['student_name'], selected_ticket['instructor_name']],
+            from_email
+        )
+        email_client.send_email(message)
+    except Exception as e:
+        st.error(f"Error sending email notification: {e}")
 
 
 # Main Program
@@ -194,12 +269,12 @@ if st.session_state.user is None:
             # Display consent form
             with st.container(height=300):
                 st.markdown(LongText.TERMS_OF_USE)
-            st.checkbox(LongText.CONSENT_ACKNOWLEDGEMENT, key="agreecheck")
+            st.checkbox(LongText.CONSENT_ACKNOWLEDGEMENT, key="agree_check")
             cols = st.columns(4)
 
             # Display buttons
             with cols[0]:
-                btn_agree = st.button("Agree and Proceed", disabled=not st.session_state.agreecheck)
+                btn_agree = st.button("Agree and Proceed", disabled=not st.session_state.agree_check)
             with cols[1]:
                 btn_inform_consent = st.link_button("Download Consent", url=os.environ['INFORM_CONSENT_SC1015'])
 
@@ -210,7 +285,6 @@ if st.session_state.user is None:
             st.markdown(
                 f"To prevent unauthorised usage and abuse of the system, we will need you to verify that you are an NTU "
                 f"student. Please follow the verification process below to continue...")
-            # st.page_link(auth_url, label="Proceed to Verification")
             st.markdown(f'<a href="{auth_url}" target="_self">Proceed to Verification</a>', unsafe_allow_html=True)
             progress_bar = st.progress(0, text="Please click the link above to verify.")
 
@@ -221,12 +295,16 @@ if st.session_state.user is None:
         if "access_token" in result:
             progress_bar.progress(50, text="Retrieving and checking profile...")
 
+            # Get user profile
+            st.session_state.user_photo = get_user_photo(result['id_token_claims']['oid'], result['access_token'])
             st.session_state.user = result['id_token_claims']['name']
             st.session_state.email = result['id_token_claims']['preferred_username']
+            st.session_state.formatted_name = st.session_state.user.replace("#", "")
 
             logger.info(st.session_state.user)
 
-            st.session_state.mongodb = DBConnector(DB_HOST).getDB(DB_NAME)
+            # Connect to MongoDB
+            st.session_state.mongodb = DBConnector(DB_HOST).get_db(DB_NAME)
             allowed_users = st.session_state.mongodb.users_permission.find_one({"status": "allowed"})['users']
             blocked_users = st.session_state.mongodb.users_permission.find_one({"status": "blocked"})['users']
 
@@ -238,10 +316,9 @@ if st.session_state.user is None:
                 progress_bar.progress(70, text="Waking up Narelle...")
                 LLM_DEPLOYMENT_NAME = os.environ['AZURE_OPENAI_DEPLOYMENT_NAME']
                 LLM_MODEL_NAME = os.environ['AZURE_OPENAI_MODEL_NAME']
-                st.session_state.llm = Narelle(deployment_name=LLM_DEPLOYMENT_NAME, model_name=LLM_MODEL_NAME)
+                st.session_state.narelle = Narelle(deployment_name=LLM_DEPLOYMENT_NAME, model_name=LLM_MODEL_NAME)
 
                 # Initializing Conversations
-                st.session_state.starttime = get_time()
                 conversation = {
                     "stime": get_time(),
                     "user": st.session_state.user,
@@ -253,11 +330,12 @@ if st.session_state.user is None:
                     "vectorstore_index": os.environ['CA_AZURE_VECTORSTORE_INDEX']
                 }
 
+                # Initialize conversation in MongoDB
                 st.session_state.conv_id = st.session_state.mongodb.conversations.insert_one(
                     conversation).inserted_id
 
-                st.session_state.conversation = []
-                st.session_state.display_messages = [
+                # Initialize AI messages
+                st.session_state.all_messages = [
                     {"role": "ai", "content": f"{LongText.NARELLE_GREETINGS}", "recorded_on": get_time()}]
 
                 progress_bar.progress(100, text="Narelle is Ready!")
@@ -279,7 +357,6 @@ if st.session_state.user is None:
 else:
     # Get tickets collection from MongoDB
     tickets_collection = st.session_state.mongodb.tickets
-
     # Set user type based on domain
     domain = st.session_state.email.split("@")[1]
 
@@ -299,19 +376,22 @@ else:
         selected_ticket_id = st.selectbox("Select a ticket to view", ticket_ids)
         selected_ticket = get_ticket(selected_ticket_id)
 
-        # Currently set to anyone can update the ticket status
+        # Student only can mark ticket as resolved, Instructor can mark ticket as resolved or reopen ticket
         # Display button to change ticket status
-        # if st.session_state.user_type == "instructor":
+
         if selected_ticket:
             # Display Mark as Resolved button only if status Open
             if selected_ticket['status'] == "Open":
                 if st.button("Mark as Resolved", use_container_width=True):
                     update_ticket_status(selected_ticket_id, "Resolved")
+                    send_update_ticket_status_email(selected_ticket, "Resolved")
                     st.rerun()
             else:
-                if st.button("Reopen Ticket", use_container_width=True):
-                    update_ticket_status(selected_ticket_id, "Open")
-                    st.rerun()
+                if st.session_state.user_type == "instructor":
+                    if st.button("Reopen Ticket", use_container_width=True):
+                        update_ticket_status(selected_ticket_id, "Open")
+                        send_update_ticket_status_email(selected_ticket, "Open")
+                        st.rerun()
 
         st.divider()
         st.header("Profile")
@@ -326,6 +406,7 @@ else:
     # Display selected ticket
     if selected_ticket_id:
 
+        # Display ticket title and status
         st.subheader(f"{selected_ticket['title']}", divider="gray")
         st.markdown(f"**Ticket ID**: {selected_ticket_id}")
         if selected_ticket['status'] == "Open":
@@ -333,8 +414,16 @@ else:
         else:
             st.markdown(f"**Status**: {selected_ticket['status']}")
 
+        # Display conversation history
+        with st.expander("View Conversation History"):
+            conv_messages = get_conv_messages(selected_ticket)
+            for message in conv_messages:
+                col1, col2 = st.columns([1, 12])
+                col1.markdown(f"**{message['role']}**")
+                col2.markdown(message['content'])
+
         # Display all chat messages for a ticket
-        display_ticket_messages(selected_ticket, chat_avatars)
+        display_ticket_messages(selected_ticket)
 
         # Chat input and send message
         if selected_ticket['status'] == "Open":
@@ -349,44 +438,14 @@ else:
             except Exception as e:
                 st.error(f"Error sending message: {e}")
 
-            try:
-                # Read HTML template
-                html_template = read_html_template("email_template/new_message_email_template.html")
-
-                # Convert markdown to HTML
-                converted_message_html = convert_markdown_to_html(new_message)
-
-                # Customize HTML content
-                html_body = html_template.format(
-                    recipient_name=selected_ticket['student_name'] if st.session_state.user_type == "instructor" else
-                    selected_ticket['instructor_name'],
-                    sender_name=st.session_state.user,
-                    latest_message=converted_message_html,
-                    streamlit_app_url="https://asknarelle.azurewebsites.net/"
-                )
-
-                # Send email notification
-                recipient_email = "C210101@e.ntu.edu.sg"
-                if st.session_state.user_type == "instructor":
-                    recipient_name = selected_ticket['student_name']
-                    recipient_email = selected_ticket['student_email']
-                else:
-                    recipient_name = selected_ticket['instructor_name']
-                    recipient_email = selected_ticket['instructor_email']
-                recipient_email = "C210101@e.ntu.edu.sg"
-                subject = f"[AskNarelle] New message in Ticket {selected_ticket_id}"
-                plain_text_body = new_message
-                from_email = "DoNotReply@140197c9-8f19-4c8a-9bb4-23adfc6600ef.azurecomm.net"
-                message = email_client.draft_email(
-                    subject,
-                    html_body,
-                    plain_text_body,
-                    recipient_email,
-                    recipient_name,
-                    from_email
-                )
-                email_client.send_email(message)
-            except Exception as e:
-                st.error(f"Error sending email notification: {e}")
+            # Send email
+            if st.session_state.user_type == "instructor":
+                recipient_name = selected_ticket['student_name']
+                recipient_email = selected_ticket['student_email']
+            else:
+                recipient_name = selected_ticket['instructor_name']
+                recipient_email = selected_ticket['instructor_email']
+            recipient_email = "C210101@e.ntu.edu.sg"
+            send_new_msg_email(selected_ticket, recipient_email, recipient_name, new_message)
 
             st.rerun()

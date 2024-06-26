@@ -15,7 +15,16 @@ class AzureEmailClient:
         except Exception as e:
             print("Error connecting to Azure Email Comms Service: " + str(e))
 
-    def draft_email(self, subject, html_body, plain_text_body, to_email, to_name, from_email):
+    def draft_email(self, subject, html_body, plain_text_body, to_email_add, to_email_name, from_email_add):
+        if len(to_email_add) == 2:
+            to = [
+                {"address": to_email_add[0], "displayName": to_email_name[0]},
+                {"address": to_email_add[1], "displayName": to_email_name[1]},
+            ]
+        else:
+            to = [
+                {"address": to_email_add[0], "displayName": to_email_name[0]}
+            ]
         message = {
             "content": {
                 "subject": subject,
@@ -23,14 +32,9 @@ class AzureEmailClient:
                 "html": html_body
             },
             "recipients": {
-                "to": [
-                    {
-                        "address": to_email,
-                        "displayName": to_name
-                    }
-                ]
+                "to": to
             },
-            "senderAddress": from_email
+            "senderAddress": from_email_add
         }
         return message
 
@@ -55,6 +59,11 @@ class AzureEmailClient:
                 raise RuntimeError(str(poller.result()["error"]))
         except Exception as e:
             print("Error sending email: " + str(e))
+
+    def read_html_template(self, file_path):
+        with open(file_path, 'r', encoding='utf-8') as file:
+            template = file.read()
+        return template
 
 
 if __name__ == '__main__':
