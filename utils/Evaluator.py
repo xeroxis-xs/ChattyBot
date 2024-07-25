@@ -89,25 +89,25 @@ def test():
                 "assist you and provide you with the necessary information.")
 
     query = "I think I do well on the recent quiz, but my score is low, may I know which part I did not do well?"
-    response = ("I apologize, but as a course assistant, I don't have access to individual student's quiz scores or the "
-               "specific breakdown of their performance in each part of the quiz. The quiz scores and feedback are "
-               "typically provided by your instructor or through the online platform where the quiz was conducted. I "
-               "recommend checking the feedback provided by your instructor or reaching out to them directly to "
-               "inquire about the specific areas where you may have not performed well. They will be able to provide "
-               "you with more detailed information and guidance on how to improve.")
+    # response = ("I apologize, but as a course assistant, I don't have access to individual student's quiz scores or the "
+    #            "specific breakdown of their performance in each part of the quiz. The quiz scores and feedback are "
+    #            "typically provided by your instructor or through the online platform where the quiz was conducted. I "
+    #            "recommend checking the feedback provided by your instructor or reaching out to them directly to "
+    #            "inquire about the specific areas where you may have not performed well. They will be able to provide "
+    #            "you with more detailed information and guidance on how to improve.")
 
     response = ("I'm sorry, but as a course assistant, I don't have access to individual student's exam grades. You "
                 "can check your exam grades through the official channels provided by your university or course "
                 "coordinator.")
 
-    response = ("I'm sorry, but as a course assistant, I don't have access to individual student's exam grades. You "
-                "will need to check with your instructor or refer to the grading system provided by your university "
-                "to determine how well you did in your exams.")
+    # response = ("I'm sorry, but as a course assistant, I don't have access to individual student's exam grades. You "
+    #             "will need to check with your instructor or refer to the grading system provided by your university "
+    #             "to determine how well you did in your exams.")
 
-    response = ("Yes, you can request for a Make-Up Quiz if you are unable to attend the scheduled quiz due to "
-                "representing the school in an international competition. Please email Smitha K G (smitha@ntu.edu.sg) "
-                "to request for the Make-Up Quiz. Make sure to provide a valid reason and any supporting documents "
-                "for your request. The details of the Make-Up Quiz will be communicated to you separately.")
+    # response = ("Yes, you can request for a Make-Up Quiz if you are unable to attend the scheduled quiz due to "
+    #             "representing the school in an international competition. Please email Smitha K G (smitha@ntu.edu.sg) "
+    #             "to request for the Make-Up Quiz. Make sure to provide a valid reason and any supporting documents "
+    #             "for your request. The details of the Make-Up Quiz will be communicated to you separately.")
 
 
 

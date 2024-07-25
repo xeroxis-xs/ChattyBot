@@ -1,6 +1,6 @@
 import os
 import pytz
-# import deepeval
+import asyncio
 from datetime import datetime
 from langchain_openai import AzureChatOpenAI
 from langchain.memory import ConversationBufferMemory
@@ -9,37 +9,9 @@ from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 from langchain_core.pydantic_v1 import BaseModel, Field
-# from deepeval.models.base_model import DeepEvalBaseLLM
-# from deepeval.metrics import AnswerRelevancyMetric
-# from deepeval.metrics import FaithfulnessMetric
-# from deepeval.test_case import LLMTestCase
-
 
 from utils.Retriever import Retriever
 
-
-# class DeepEvalAzureOpenAI(DeepEvalBaseLLM):
-#     # https://docs.confident-ai.com/docs/metrics-introduction#azure-openai-example
-#     def __init__(
-#             self,
-#             model
-#     ):
-#         self.model = model
-#
-#     def load_model(self):
-#         return self.model
-#
-#     def generate(self, prompt: str) -> str:
-#         chat_model = self.load_model()
-#         return chat_model.invoke(prompt).content
-#
-#     async def a_generate(self, prompt: str) -> str:
-#         chat_model = self.load_model()
-#         res = await chat_model.ainvoke(prompt)
-#         return res.content
-#
-#     def get_model_name(self):
-#         return "Custom Azure OpenAI Model"
 
 class Result(BaseModel):
     classification: str = Field(
@@ -109,7 +81,7 @@ class Narelle:
     def get_total_tokens_cost(self):
         return {"overall_cost": self.total_api_cost, "overall_tokens": self.total_api_tokens}
 
-    def answer_this(self, query, contexts=None):
+    async def answer_this(self, query, contexts=None):
         sources = []
 
         # Copying previous conversations for this local context
@@ -127,7 +99,7 @@ class Narelle:
             local_context.append(human_query)
 
             with get_openai_callback() as cb:
-                response = self.llm.invoke(local_context)
+                response = self.llm.ainvoke(local_context)
                 # print(response)
                 # test_case = LLMTestCase(
                 #     input=query,
@@ -152,8 +124,33 @@ class Narelle:
             response = SystemMessage(content="No context provided, hence no response")
         return response.content, cost, sources
 
+    async def is_trivial_query(self, query):
+        prompt = PromptTemplate(
+            template=r"As a teaching assistant for this course, you do not have the authority to approve any student "
+                     r"requests. All decisions regarding such requests are exclusively made by the course instructor. "
+                     r"Please assess whether the following Query requires approval from the instructor. "
+                     r"Respond with 'YES' if it requires instructor approval, or 'NO' if it does not.\n\n"
+                     r"Query: {query}",
+            input_variables=["query"]
+        )
+        chain = prompt | self.llm
+        result = chain.ainvoke({"query": query})
+        if result == "YES":
+            # it is not trivial, requires instructor approval
+            return False
+        # it is trivial, does not require instructor approval
+        return True
+
+    async def get_two_llm_response(self, query):
+        (answer, token_cost, sources), is_trivial = await asyncio.gather(
+            self.answer_this(query=query),
+            self.is_trivial_query(query)
+        )
+
     def fade_memory(self):
         self.messages.pop(1)
+
+
 
     def evaluate(self, response):
         prompt = PromptTemplate(
