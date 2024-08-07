@@ -6,16 +6,20 @@ import requests
 from uuid import uuid4
 from datetime import datetime
 import pytz
+import json
 from dotenv import load_dotenv
-import streamlit as st
 from streamlit_feedback import streamlit_feedback
+import streamlit as st
 from msal import ConfidentialClientApplication
+
 
 from Narelle import Narelle
 from utils.DBConnector import DBConnector
 from texts import LongText
 from utils.Logger import setup_logger
 from utils.Email import AzureEmailClient
+
+
 
 
 # Utility Functions
@@ -110,7 +114,7 @@ def click_ticket_button(button):
     else:
         upload_user_message_to_db("No")
     # Enable input field after AI has responded
-    st.session_state.disable_chat_input = False
+    st.session_state.chat_input = True
 
 
 def create_ticket(latest_query):
@@ -187,7 +191,7 @@ async def main():
 
     # Initialise Logger
     logger = setup_logger()
-    logger.info("Starting AskNarelle...")
+    logger.info("----------- New state ----------")
 
     # Initialise App Registration
     app = ConfidentialClientApplication(
@@ -198,8 +202,6 @@ async def main():
 
     # Initialise Email Client
     email_client = AzureEmailClient()
-
-    logger.info("----------- New state ----------")
 
     # Initialise Streamlit App
     st.set_page_config(page_title='AskNarelle - Your friendly course assistant', page_icon="🙋‍♀️")
@@ -221,9 +223,9 @@ async def main():
         st.session_state.email = None
     if "auth_code" not in st.session_state:
         st.session_state.auth_code = None
-    if 'disable_chat_input' not in st.session_state:
-        # Initialise disable_chat_input as False
-        st.session_state.disable_chat_input = False
+    if 'chat_input' not in st.session_state:
+        # Initialise chat_input as True
+        st.session_state.chat_input = True
     if 'creating_ticket' not in st.session_state:
         st.session_state.creating_ticket = False
     if 'latest_query' not in st.session_state:
@@ -235,6 +237,7 @@ async def main():
         # Clear query parameters
         st.query_params.clear()
         if st.session_state.auth_code is None:
+            logger.info("No auth code found, displaying consent form")
             with informed_consent_form.container():
                 # Display consent form
                 with st.container(height=300):
@@ -258,11 +261,15 @@ async def main():
                 st.markdown(f'<a href="{auth_url}" target="_self">Proceed to Verification</a>', unsafe_allow_html=True)
                 progress_bar = st.progress(0, text="Please click the link above to verify.")
 
+        # When user was redirected back from the authentication page with an auth code in url params
         else:
+            logger.info("Auth code found, attempting to get token")
             progress_bar = st.progress(20, text="Authenticating...")
             result = get_token_from_code(app, st.session_state.auth_code)
+            logger.info(f"access_token found in result")
             # If login is successful
             if "access_token" in result:
+                logger.info("Token is valid and saved to local storage")
                 progress_bar.progress(50, text="Retrieving and checking profile...")
 
                 # Get user profile
@@ -320,6 +327,7 @@ async def main():
 
             # Login failed
             else:
+                logger.error("Authentication failed")
                 st.write(result.get("error"))
                 st.write(result.get("error_description"))
                 st.write(result.get("correlation_id"))  # You may need this when reporting a bug
@@ -402,10 +410,10 @@ async def main():
             )
 
         # Input field for user to type in query and process query
-        if query := st.chat_input("Type in your query here",
-                                  disabled=st.session_state.disable_chat_input) or st.session_state.disable_chat_input:
-
-            if not st.session_state.disable_chat_input:
+        if query := (st.chat_input("Type in your query here", disabled=not st.session_state.chat_input)
+                     or not st.session_state.chat_input):
+            # If chat input is enabled
+            if st.session_state.chat_input:
                 # Display user message
                 with st.chat_message(st.session_state.formatted_name, avatar=st.session_state.user_photo):
                     # Set latest user query
@@ -416,7 +424,7 @@ async def main():
                     st.balloons()
                 upload_user_message_to_db(query)
                 # Disable input field until AI has responded
-                st.session_state.disable_chat_input = True
+                st.session_state.chat_input = False
                 st.rerun()
 
             # Display AI message
@@ -424,12 +432,9 @@ async def main():
                 with st.spinner('Narelle is processing your query...'):
                     # Run both LLM calls concurrently and wait for their results
                     (answer, token_cost, sources), is_trivial = await asyncio.gather(
-                        st.session_state.narelle.answer_this(query=query),
-                        st.session_state.narelle.is_trivial_query(query)
+                        st.session_state.narelle.answer_this(query=st.session_state.latest_query),
+                        st.session_state.narelle.is_trivial_query(st.session_state.latest_query)
                     )
-                    # logger.info(f"Require Prompt Ticket? {not is_trivial}, Trivial? {is_trivial}")
-
-
 
                     # # Get response from Narelle
                     # answer, token_cost, sources = st.session_state.narelle.answer_this(st.session_state.latest_query)
@@ -444,15 +449,15 @@ async def main():
                 # Append sources to the answer
                 sources_text = f"\n\n\n **Sources:** *{sources}*"
                 if not is_trivial:
-                    # Require ticket
-                    # If response suggest user to reach out / unable to answer query / non-trivial
+                    # Non-Trivial, require ticket, Remove sources_text
                     sources_text = ""
                 answer = f"{answer} {sources_text}"
+                # Display AI response
                 st.markdown(answer)
                 upload_ai_message_to_db(answer, token_cost)
 
                 # Enable input field after AI has responded
-                st.session_state.disable_chat_input = False
+                st.session_state.chat_input = True
                 if is_trivial:
                     # Does not require ticket
                     st.rerun()
@@ -474,6 +479,7 @@ async def main():
                     with col2:
                         st.button("No", type="secondary", use_container_width=True, on_click=click_ticket_button,
                                   args=['No'])
+
 
 
 if __name__ == '__main__':
